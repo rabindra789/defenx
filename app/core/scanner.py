@@ -73,7 +73,6 @@ def get_incident(incident_id: str) -> Optional[dict]:
     return None
 
 def create_alert(alert_type: str, severity: str, message: str) -> dict:
-    """Create a new alert and store it in memory."""
     global ALERTS
     aid = f"AL-{next(_alert_counter)}"
     al = {
@@ -99,7 +98,6 @@ def create_alert(alert_type: str, severity: str, message: str) -> dict:
 
 
 def latest_alerts(limit: int = 10, severity_filter: Optional[str] = None) -> List[dict]:
-    """Return latest alerts with optional severity filtering."""
     global ALERTS
     if not ALERTS:
         print("[DEBUG] No alerts currently stored.")
@@ -167,12 +165,6 @@ async def http_header_check(ip_or_host: str, timeout: int = 3) -> dict:
 
 # Wrapper to perform a scan but ensure single concurrent scanner execution
 async def perform_scan(target_ip: Optional[str] = None, ports: Optional[List[int]] = None, concurrency: Optional[int] = None) -> dict:
-    """
-    perform_scan: safe wrapper that acquires _scan_lock to avoid concurrent scans.
-    - target_ip: if None uses CONFIG['scan_target']
-    - ports: optional override
-    - concurrency: optional override
-    """
     global last_scan, last_scan_time
 
     target = target_ip or CONFIG.get("scan_target", "127.0.0.1")
