@@ -1,0 +1,10 @@
+services:
+  web:
+    build: .
+    container_name: defenx_app
+    ports:
+      - "8000:8000"  # Map host port 8000 to container
+    environment:
+      - ENV=production
+      - DEBUG=0
+    restart: unless-stopped
