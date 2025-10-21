@@ -1,5 +1,6 @@
 from fastapi import FastAPI
-from app.routers import monitor, incidents, alerts, logs, dashboard, config, health
+from fastapi.responses import JSONResponse
+from app.routers import monitor, incidents, alerts, logs, dashboard, config, health, phishing
 from app.core import scanner
 from app.core import config as cfg
 import asyncio
@@ -7,13 +8,31 @@ import asyncio
 app = FastAPI(title="DefenX Backend", version="0.1")
 
 # routers
-app.include_router(monitor.router, prefix="/monitor", tags=["Monitoring"])
-app.include_router(incidents.router, prefix="/incidents", tags=["Incidents"])
-app.include_router(alerts.router, prefix="/alerts", tags=["Alerts"])
-app.include_router(logs.router, prefix="/logs", tags=["Logs"])
-app.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"])
-app.include_router(config.router, prefix="/config", tags=["Config"])
-app.include_router(health.router, tags=["Health"])
+app.include_router(monitor.router, prefix="/api/monitor", tags=["Monitoring"])
+app.include_router(incidents.router, prefix="/api/incidents", tags=["Incidents"])
+app.include_router(alerts.router, prefix="/api/alerts", tags=["Alerts"])
+app.include_router(logs.router, prefix="/api/logs", tags=["Logs"])
+app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"])
+app.include_router(config.router, prefix="/api/config", tags=["Config"])
+app.include_router(health.router, prefix="/api/health", tags=["Health"])
+app.include_router(phishing.router, prefix="/api/phishing", tags=["Phishing"])
+
+@app.get("/", response_class=JSONResponse)
+async def root():
+    return {
+        "app": "DefenX Backend",
+        "version": "0.1",
+        "status": "running",
+        "endpoints": {
+            "monitor": "/api/monitor",
+            "incidents": "/api/incidents",
+            "alerts": "/api/alerts",
+            "logs": "/api/logs",
+            "dashboard": "/api/dashboard",
+            "config": "/api/config",
+            "health": "/api/health"
+        }
+    }
 
 # Periodic scanner task
 async def _periodic_scanner():

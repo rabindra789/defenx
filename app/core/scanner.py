@@ -73,20 +73,49 @@ def get_incident(incident_id: str) -> Optional[dict]:
     return None
 
 def create_alert(alert_type: str, severity: str, message: str) -> dict:
+    """Create a new alert and store it in memory."""
+    global ALERTS
     aid = f"AL-{next(_alert_counter)}"
-    al = {"alert_id": aid, "type": alert_type, "severity": severity, "message": message, "timestamp": _now(), "ack": False}
+    al = {
+        "alert_id": aid,
+        "type": alert_type,
+        "severity": severity,
+        "message": message,
+        "timestamp": _now(),
+        "ack": False,
+    }
     ALERTS.append(al)
-    add_log("alerts", f"Alert generated: {aid} - {alert_type}", "critical" if severity.lower() == "high" else "warning")
+
+    # Double check it's stored (for debug visibility)
+    print(f"[DEBUG] Alert Created → {al}")
+    print(f"[DEBUG] Total Alerts Now: {len(ALERTS)}")
+
+    add_log(
+        "alerts",
+        f"Alert generated: {aid} - {alert_type}",
+        "critical" if severity.lower() == "high" else "warning",
+    )
     return al
+
+
+def latest_alerts(limit: int = 10, severity_filter: Optional[str] = None) -> List[dict]:
+    """Return latest alerts with optional severity filtering."""
+    global ALERTS
+    if not ALERTS:
+        print("[DEBUG] No alerts currently stored.")
+        return []
+
+    # Reverse chronological
+    items = ALERTS[::-1]
+
+    if severity_filter:
+        items = [a for a in items if a["severity"].lower() == severity_filter.lower()]
+
+    print(f"[DEBUG] Returning {len(items[:limit])} alerts (filtered={bool(severity_filter)})")
+    return items[:limit]
 
 def list_alerts() -> List[dict]:
     return ALERTS
-
-def latest_alerts(limit: int = 10, severity_filter: Optional[str] = None) -> List[dict]:
-    items = ALERTS[::-1]
-    if severity_filter:
-        items = [a for a in items if a["severity"].lower() == severity_filter.lower()]
-    return items[:limit]
 
 def ack_alert(alert_id: str) -> Optional[dict]:
     for a in ALERTS:
@@ -148,7 +177,7 @@ async def perform_scan(target_ip: Optional[str] = None, ports: Optional[List[int
 
     target = target_ip or CONFIG.get("scan_target", "127.0.0.1")
     ports = ports or CONFIG.get("scan_ports_default", [])
-    concurrency = concurrency or CONFIG.get("scan_concurrency", 100)
+    concurrency = concurrency or CONFIG.get("scan_concurrency", 200)
 
     # Prevent overlapping scans
     if _scan_lock.locked():
