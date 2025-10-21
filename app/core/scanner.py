@@ -5,21 +5,33 @@ import time
 import itertools
 from typing import List, Dict, Optional, Tuple
 import httpx
+from app.core import config
 
 # In-memory storage
 INCIDENTS: List[dict] = []
 ALERTS: List[dict] = []
 LOGS: List[dict] = []
+
+# Last scan cache (for realtime read by frontend)
+last_scan: Optional[Dict] = None
+last_scan_time: Optional[str] = None
+
+# Config alias (use config module values)
 CONFIG = {
-    "scan_ports_default": [22, 80, 443, 3306, 8080],
-    "scan_timeout": 2,
-    "scan_concurrency": 100
+    "scan_ports_default": config.scan_ports_default,
+    "scan_timeout": config.scan_timeout,
+    "scan_concurrency": config.scan_concurrency,
+    "scan_target": config.scan_target,
+    "scan_interval_seconds": config.scan_interval_seconds,
 }
 
 # Counters for unique IDs
 _incident_counter = itertools.count(1)
 _alert_counter = itertools.count(1)
 _log_counter = itertools.count(int(time.time() * 1000))
+
+# Scan lock to avoid overlapping scans
+_scan_lock = asyncio.Lock()
 
 # Helpers
 def _now() -> str:
@@ -36,6 +48,11 @@ def recent_logs(limit: int = 50) -> List[dict]:
 
 def search_logs(query: str, start: Optional[str] = None, end: Optional[str] = None) -> List[dict]:
     results = [l for l in LOGS if query.lower() in l["message"].lower()]
+    # optional start/end filtering if timestamps present (ISO strings)
+    if start:
+        results = [r for r in results if r["timestamp"] >= start]
+    if end:
+        results = [r for r in results if r["timestamp"] <= end]
     return results
 
 # Incidents & Alerts
@@ -85,7 +102,10 @@ async def tcp_check(ip: str, port: int, timeout: int = 2) -> Tuple[int, bool]:
         fut = asyncio.open_connection(ip, port)
         reader, writer = await asyncio.wait_for(fut, timeout=timeout)
         writer.close()
-        await writer.wait_closed()
+        try:
+            await writer.wait_closed()
+        except Exception:
+            pass
         return port, True
     except Exception:
         return port, False
@@ -96,7 +116,7 @@ async def scan_ports(ip: str, ports: List[int], concurrency: int = 100) -> Dict[
 
     async def worker(p: int):
         async with sem:
-            port, is_open = await tcp_check(ip, p)
+            port, is_open = await tcp_check(ip, p, timeout=CONFIG["scan_timeout"])
             results[port] = is_open
 
     tasks = [asyncio.create_task(worker(p)) for p in ports]
@@ -116,26 +136,44 @@ async def http_header_check(ip_or_host: str, timeout: int = 3) -> dict:
     except Exception as e:
         return {"error": str(e)}
 
-async def perform_scan(target_ip: str, ports: Optional[List[int]] = None, concurrency: int = 100) -> dict:
-    ports = ports or CONFIG["scan_ports_default"]
-    add_log("scanner", f"Starting scan on {target_ip} ports={ports}", "info")
+# Wrapper to perform a scan but ensure single concurrent scanner execution
+async def perform_scan(target_ip: Optional[str] = None, ports: Optional[List[int]] = None, concurrency: Optional[int] = None) -> dict:
+    """
+    perform_scan: safe wrapper that acquires _scan_lock to avoid concurrent scans.
+    - target_ip: if None uses CONFIG['scan_target']
+    - ports: optional override
+    - concurrency: optional override
+    """
+    global last_scan, last_scan_time
 
-    port_results = await scan_ports(target_ip, ports, concurrency)
-    open_ports = [p for p, is_open in port_results.items() if is_open]
+    target = target_ip or CONFIG.get("scan_target", "127.0.0.1")
+    ports = ports or CONFIG.get("scan_ports_default", [])
+    concurrency = concurrency or CONFIG.get("scan_concurrency", 100)
 
-    # Create incidents/alerts for high-risk ports
-    if open_ports:
-        details = f"Open ports on {target_ip}: {open_ports}"
-        create_incident("open_ports", "Medium", "scanner", details)
+    # Prevent overlapping scans
+    if _scan_lock.locked():
+        add_log("scanner", "Scan attempted while another scan is running; returning last result", "info")
+        return {"scan_target": target, "note": "scan_in_progress", "last_scan": last_scan, "last_scan_time": last_scan_time}
 
-        critical_ports = {22, 3306, 3389}
-        if any(p in critical_ports for p in open_ports):
-            create_alert("critical_port_open", "High", f"{target_ip} has critical open ports {open_ports}")
+    async with _scan_lock:
+        add_log("scanner", f"Starting scan on {target} ports={ports}", "info")
+        port_results = await scan_ports(target, ports, concurrency)
+        open_ports = [p for p, is_open in port_results.items() if is_open]
 
-    http_info = await http_header_check(target_ip)
-    add_log("scanner", f"HTTP check: {http_info}", "info")
+        if open_ports:
+            details = f"Open ports on {target}: {open_ports}"
+            create_incident("open_ports", "Medium", "scanner", details)
+            critical_ports = {22, 3306, 3389}
+            if any(p in critical_ports for p in open_ports):
+                create_alert("critical_port_open", "High", f"{target} has critical open ports {open_ports}")
 
-    return {"scan_target": target_ip, "ports": port_results, "http_info": http_info}
+        http_info = await http_header_check(target)
+        add_log("scanner", f"HTTP check: {http_info}", "info")
+
+        result = {"scan_target": target, "ports": port_results, "http_info": http_info, "timestamp": _now()}
+        last_scan = result
+        last_scan_time = result["timestamp"]
+        return result
 
 # Dashboard helpers
 def dashboard_overview() -> dict:
@@ -143,14 +181,17 @@ def dashboard_overview() -> dict:
         "total_incidents": len(INCIDENTS),
         "active_alerts": sum(1 for a in ALERTS if not a.get("ack")),
         "total_logs": len(LOGS),
-        "uptime": "demo-mode"
+        "last_scan_time": last_scan_time
     }
 
 def dashboard_trends() -> dict:
-    # minimal trends placeholder
     return {
         "trend_data": [
             {"time": "09:00", "incidents": max(0, len(INCIDENTS)-3)},
             {"time": "10:00", "incidents": len(INCIDENTS)},
         ]
     }
+
+# Utility for external callers to get last scan
+def get_last_scan() -> Optional[Dict]:
+    return last_scan
