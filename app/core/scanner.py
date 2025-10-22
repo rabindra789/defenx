@@ -199,9 +199,24 @@ async def perform_scan(target_ip: Optional[str] = None, ports: Optional[List[int
 # Dashboard helpers
 def dashboard_overview() -> dict:
     open_ports_count = 0
+    open_ports_list = []
+    expected_open_ports = {22}  # Known "safe" always-open ports
+
     if last_scan and "ports" in last_scan:
-        # last_scan["ports"] is a dict {port_number: True/False}
-        open_ports_count = sum(1 for is_open in last_scan["ports"].values() if is_open)
+        open_ports_list = [p for p, is_open in last_scan["ports"].items() if is_open and p not in expected_open_ports]
+        open_ports_count = len(open_ports_list)
+
+    # Determine system status
+    critical_ports = {3306, 3389}  # Only treat these as critical
+    has_critical_open_ports = any(p in critical_ports for p in open_ports_list)
+    has_high_alerts = any(a for a in ALERTS if a.get("severity", "").lower() == "high" and not a.get("ack"))
+
+    if has_critical_open_ports or has_high_alerts:
+        system_status = "Critical"
+    elif open_ports_count > 0 or any(a for a in ALERTS if a.get("severity", "").lower() == "medium" and not a.get("ack")):
+        system_status = "Warning"
+    else:
+        system_status = "OK"
 
     return {
         "total_incidents": len(INCIDENTS),
@@ -209,6 +224,7 @@ def dashboard_overview() -> dict:
         "total_logs": len(LOGS),
         "last_scan_time": last_scan_time,
         "open_ports_count": open_ports_count,
+        "system_status": system_status,
     }
 
 
