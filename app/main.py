@@ -1,11 +1,20 @@
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from app.routers import monitor, incidents, alerts, logs, dashboard, config, health, phishing, network
+from fastapi.middleware.cors import CORSMiddleware
 from app.core import scanner, netmon
 from app.core import config as cfg
 import asyncio
 
 app = FastAPI(title="DefenX Backend", version="0.1")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],    
+    allow_credentials=True,
+    allow_methods=["*"],    
+    allow_headers=["*"],     
+)
 
 # routers
 app.include_router(monitor.router, prefix="/api/monitor", tags=["Monitoring"])
