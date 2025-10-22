@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
-from app.routers import monitor, incidents, alerts, logs, dashboard, config, health, phishing
-from app.core import scanner
+from app.routers import monitor, incidents, alerts, logs, dashboard, config, health, phishing, network
+from app.core import scanner, netmon
 from app.core import config as cfg
 import asyncio
 
@@ -16,6 +16,7 @@ app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"]
 app.include_router(config.router, prefix="/api/config", tags=["Config"])
 app.include_router(health.router, prefix="/api/health", tags=["Health"])
 app.include_router(phishing.router, prefix="/api/phishing", tags=["Phishing"])
+app.include_router(network.router, prefix="/api/network", tags=["Network"])
 
 @app.get("/", response_class=JSONResponse)
 async def root():
@@ -48,4 +49,5 @@ async def _periodic_scanner():
 async def startup_tasks():
     # start periodic scanning loop
     asyncio.create_task(_periodic_scanner())
+    await netmon.start_monitor()
     scanner.add_log("startup", "Periodic scanner started", "info")
