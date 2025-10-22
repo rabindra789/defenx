@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
-from app.routers import monitor, incidents, alerts, logs, dashboard, config, health, phishing, network
+from app.routers import monitor, incidents, alerts, logs, dashboard, config, health, phishing, network, device_map
 from fastapi.middleware.cors import CORSMiddleware
 from app.core import scanner, netmon
 from app.core import config as cfg
@@ -26,6 +26,7 @@ app.include_router(config.router, prefix="/api/config", tags=["Config"])
 app.include_router(health.router, prefix="/api/health", tags=["Health"])
 app.include_router(phishing.router, prefix="/api/phishing", tags=["Phishing"])
 app.include_router(network.router, prefix="/api/network", tags=["Network"])
+app.include_router(device_map.router, prefix="/api", tags=["Devices"])
 
 @app.get("/", response_class=JSONResponse)
 async def root():
