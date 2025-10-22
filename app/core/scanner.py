@@ -198,12 +198,19 @@ async def perform_scan(target_ip: Optional[str] = None, ports: Optional[List[int
 
 # Dashboard helpers
 def dashboard_overview() -> dict:
+    open_ports_count = 0
+    if last_scan and "ports" in last_scan:
+        # last_scan["ports"] is a dict {port_number: True/False}
+        open_ports_count = sum(1 for is_open in last_scan["ports"].values() if is_open)
+
     return {
         "total_incidents": len(INCIDENTS),
         "active_alerts": sum(1 for a in ALERTS if not a.get("ack")),
         "total_logs": len(LOGS),
-        "last_scan_time": last_scan_time
+        "last_scan_time": last_scan_time,
+        "open_ports_count": open_ports_count,
     }
+
 
 def dashboard_trends() -> dict:
     return {
