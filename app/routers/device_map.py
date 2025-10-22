@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Union, TypedDict, Sequence
 
 router = APIRouter(
     prefix="/devices",
-    tags=["devices"]
+    tags=["Devices"]
 )
 
 # ---------- FILE PATHS ----------

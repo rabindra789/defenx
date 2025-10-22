@@ -26,7 +26,7 @@ app.include_router(config.router, prefix="/api/config", tags=["Config"])
 app.include_router(health.router, prefix="/api/health", tags=["Health"])
 app.include_router(phishing.router, prefix="/api/phishing", tags=["Phishing"])
 app.include_router(network.router, prefix="/api/network", tags=["Network"])
-app.include_router(device_map.router, prefix="/api", tags=["Devices"])
+app.include_router(device_map.router)
 
 @app.get("/", response_class=JSONResponse)
 async def root():
