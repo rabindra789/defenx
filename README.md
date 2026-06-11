@@ -1,5 +1,12 @@
 # DefenX Backend
 
+[![License: MIT](LICENSE)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/rabindra789/defenx/actions/workflows/ci.yml/badge.svg)](https://github.com/rabindra789/defenx/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/Python-3.12+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.119-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
 **DefenX** is a cybersecurity monitoring backend designed for SMEs. It provides **real-time server scanning**, **threat detection**, **logs**, **alerts**, **dashboard metrics**, and a **phishing detection API**. The backend exposes a clean REST API for a frontend dashboard or client applications.
 
 ---
@@ -14,6 +21,41 @@
 - **Phishing scanner** for email or text content.
 - **Health endpoints** to check service status.
 - **OpenAPI / Swagger documentation** available.
+
+---
+
+## 🏗 Architecture
+
+```mermaid
+graph TD
+    A[Client / Dashboard] -->|REST API| B[DefenX Backend]
+    B --> C[Monitoring Module]
+    B --> D[Phishing Scanner]
+    B --> E[Incident & Alert Manager]
+    B --> F[Logging System]
+    B --> G[Dashboard Metrics]
+    C --> H[Port Scanner]
+    C --> I[HTTP Health Check]
+    C --> J[Network Monitor]
+    D --> K[Email/Text Analysis]
+    E --> L[Alert Routing]
+    F --> M[Search & Retrieval]
+    G --> N[Trend & Overview Endpoints]
+    H --> O[Target Servers]
+    I --> O
+    J --> O
+    K --> P[External Threat Feeds]
+```
+
+## Additional Documentation
+
+| File | Description |
+|------|-------------|
+| [`frontend-guide.md`](frontend-guide.md) | Frontend integration guide |
+| [`netmon-daemon.md`](netmon-daemon.md) | Network monitoring daemon setup |
+| [`defenx-service.md`](defenx-service.md) | Running DefenX as a system service |
+| [`Dockerfile`](Dockerfile) | Container build configuration |
+| [`docker-compose.yml`](docker-compose.yml) | Multi-service deployment |
 
 ---
 
